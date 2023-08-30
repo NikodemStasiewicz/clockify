@@ -1,27 +1,31 @@
-# import requests
+import pandas as pd
+from openpyxl import Workbook
+import os
 
-# api_key = 'YzMzZDFhMzItN2E0OS00NTEwLTgzMTAtNGE4ZGVkNzE3NTFi'
-# headers = {
-#     'x-api-key': api_key
-# }
+csv_file = 'Clockify_Time_Report_Detailed_28_08_2023-03_09_2023.csv'
+df = pd.read_csv(csv_file)
 
-# workspace_id = '64ed817b29c9f301a1529730'
-# url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}'
-# response = requests.get(url, headers=headers)
+df['Duration (timedelta)'] = pd.to_timedelta(df['Duration (h)'])
 
-# if response.status_code == 200:
-#     workspace_info = response.json()
-#     print("Nazwa workspace:", workspace_info['name'])
-#     print("ID workspace:", workspace_info['id'])
-#     # Dodaj tutaj kod do pobrania innych informacji o workspace
-# else:
-#     print('Nie udało się połączyć ze stroną API Clockify')
+pivot_df = df.pivot_table(values='Duration (timedelta)', index='User', columns='Project', aggfunc='sum', fill_value=pd.Timedelta(seconds=0))
 
-import requests
-import json
+pivot_df = pivot_df.apply(lambda x: x / pd.Timedelta(hours=1))
 
-api_key="ZDIxNDE1OTItZDcwMS00ZDRjLWE1MzgtODQ3YjA3OTU5MGQw"
+pivot_df['Total Hours'] = pivot_df.sum(axis=1)
 
-data = {'x-api-key': api_key}
-r = requests.get('https://api.clockify.me/api/v1/user', headers=data)
-print(r.content)
+excel_filename = 'summed_clockify_data.xlsx'
+wb = Workbook()
+ws = wb.active
+ws.title = 'Summed Clockify Data'
+
+headers = list(pivot_df.columns)
+ws.append(['User'] + headers)  
+
+for index, row in pivot_df.iterrows():
+    data_row = [index] + [row[col] for col in headers]
+    ws.append(data_row)
+
+wb.save(excel_filename)
+print(f"Summed data saved to {excel_filename}")
+
+os.system(excel_filename)
